@@ -3,8 +3,6 @@ import RxSwift
 import RxCocoa
 import PlaygroundSupport
 
-typealias Action = () -> Void
-
 protocol StateMachine {
     associatedtype State
     associatedtype Event
