@@ -4,8 +4,8 @@ import RxCocoa
 import PlaygroundSupport
 
 public enum FieldState<Value> {
-    case set(Value)
-    case unset
+    case selected(Value)
+    case empty
 }
 
 public enum FieldEvent<Value> {
@@ -14,16 +14,28 @@ public enum FieldEvent<Value> {
 }
 
 public struct Field<Value> {
-    public var value: AnyObserver<FieldState<Value>>
+    var value: AnyObserver<FieldState<Value>>
+    
+    public func set(_ newValue: FieldState<Value>) {
+        value.onNext(newValue)
+    }
 }
 
 public struct Selector<Value> {
-    public var selected: Observable<FieldEvent<Value>>
+    public var events: Observable<FieldEvent<Value>>
 }
 
 public struct Button {
-    public var isEnabled: AnyObserver<Bool>
+    var isEnabled: AnyObserver<Bool>
     public var tap: Observable<Void>
+    
+    public func enable() {
+        isEnabled.onNext(true)
+    }
+    
+    public func disable() {
+        isEnabled.onNext(false)
+    }
 }
 
 func makeBasicStackView(axis: NSLayoutConstraint.Axis) -> UIStackView {
@@ -54,7 +66,7 @@ final class NumberPickerField {
     let value: AnyObserver<FieldState<Int>>
     let selected: Observable<FieldEvent<Int>>
     
-    private let _value = BehaviorSubject<FieldState<Int>>(value: .unset)
+    private let _value = BehaviorSubject<FieldState<Int>>(value: .empty)
     private let _selected = PublishSubject<FieldEvent<Int>>()
     
     private let title: String
@@ -94,8 +106,8 @@ final class NumberPickerField {
         
         let doneButton = UIBarButtonItem(title: "Done", style: .plain, target: nil, action: nil)
         
-        cancelButton.rx.tap.subscribe(onNext: { _ in
-            self._selected.onNext(.clear)
+        cancelButton.rx.tap.subscribe(onNext: { [weak self] _ in
+            self?._selected.onNext(.clear)
             textFieldTop.resignFirstResponder()
         }).disposed(by: bag)
         
@@ -113,15 +125,15 @@ final class NumberPickerField {
         
         _value.map { value -> String? in
             switch value {
-            case .set(let v):
+            case .selected(let v):
                 return String(v)
-            case .unset:
+            case .empty:
                 return nil
             }
             }.bind(to: textFieldTop.rx.text).disposed(by: bag)
         
-        picker.rx.itemSelected.subscribe(onNext: { (row, _) in
-            self._selected.onNext(.select(row))
+        picker.rx.itemSelected.subscribe(onNext: { [weak self] (row, _) in
+            self?._selected.onNext(.select(row))
         }).disposed(by: bag)
         
         textFieldTop.autocorrectionType = .no
@@ -173,7 +185,7 @@ public final class ZDaysFormViewController: UIViewController {
     
     public init() {
         field = Field(value: numberPicker.value)
-        selector = Selector(selected: numberPicker.selected)
+        selector = Selector(events: numberPicker.selected)
         button = Button(isEnabled: _button.isEnabled, tap: _button.tap)
         super.init(nibName: nil, bundle: nil)
     }

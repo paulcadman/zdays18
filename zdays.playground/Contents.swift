@@ -54,7 +54,7 @@ final class RxStateMachine<S: StateMachine> {
 
 let viewController = ZDaysFormViewController()
 
-let selectEvents = viewController.selector.selected.map { event -> FormEvent in
+let selectEvents = viewController.selector.events.map { event -> FormEvent in
     switch event {
     case .select(let number):
         return .select(number: number)
@@ -74,13 +74,13 @@ let machine = RxStateMachine(wrapping: FormStateMachine(),
 machine.run { state in
     switch state {
     case .invalid:
-        viewController.field.value.onNext(.unset)
-        viewController.button.isEnabled.onNext(false)
+        viewController.field.set(.empty)
+        viewController.button.disable()
     case .valid(let number):
-        viewController.field.value.onNext(.set(number))
-        viewController.button.isEnabled.onNext(true)
+        viewController.field.set(.selected(number))
+        viewController.button.enable()
     case .submitted:
-        viewController.button.isEnabled.onNext(false)
+        viewController.button.disable()
     }
 }
 
