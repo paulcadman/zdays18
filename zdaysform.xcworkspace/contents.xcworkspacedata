@@ -4,4 +4,11 @@
    <FileRef
       location = "group:zdays.playground">
    </FileRef>
+   <Group
+      location = "container:"
+      name = "Dependencies">
+      <FileRef
+         location = "group:Vendor/RxSwift/Rx.xcodeproj">
+      </FileRef>
+   </Group>
 </Workspace>

@@ -1,56 +1,142 @@
 import UIKit
+import RxSwift
+import RxCocoa
 import PlaygroundSupport
 
-var str = "Hello, playground"
-
-final class ZDaysFormCell: UITableViewCell {
-    private let titleLabel = UILabel()
-    private let contentStackView = UIStackView()
+func makeBasicStackView(axis: NSLayoutConstraint.Axis) -> UIStackView {
+    let stack = UIStackView()
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    stack.axis = axis
+    stack.isLayoutMarginsRelativeArrangement = true
     
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        
-        contentStackView.translatesAutoresizingMaskIntoConstraints = false
-        contentStackView.axis = .vertical
-        contentStackView.isLayoutMarginsRelativeArrangement = true
-        contentStackView.spacing = 12
-        contentStackView.layoutMargins = .init(top: 24, left: 24, bottom: 24, right: 24)
-        contentStackView.alignment = .leading
-        
-        contentStackView.addArrangedSubview(titleLabel)
-        titleLabel.text = str
-        
-        titleLabel.font = UIFont.preferredFont(forTextStyle: .title2)
-        self.contentView.addSubview(contentStackView)
-        
-        NSLayoutConstraint.activate([
-            self.contentStackView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor),
-            self.contentStackView.trailingAnchor.constraint(equalTo: self.contentView.trailingAnchor),
-            self.contentStackView.topAnchor.constraint(equalTo: self.contentView.topAnchor),
-            self.contentStackView.bottomAnchor.constraint(equalTo: self.contentView.bottomAnchor)])
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    return stack
 }
 
-final class ZDaysFormListViewController: UITableViewController {
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        self.tableView.estimatedRowHeight = 400
-        self.tableView.rowHeight = UITableView.automaticDimension
+class FieldPickerDelegate: NSObject, UIPickerViewDelegate, UIPickerViewDataSource {
+    
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        return 5
     }
     
-    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        return ZDaysFormCell(style: .default, reuseIdentifier: nil)
-    }
-    
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
         return 1
     }
+    
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        return String(row)
+    }
 }
 
-let vc = ZDaysFormListViewController()
-vc.preferredContentSize = .init(width: 376, height: 1000)
-PlaygroundPage.current.liveView = vc
+class Field {
+    let title: String
+    let bag = DisposeBag()
+    let fieldPickerDelegate = FieldPickerDelegate()
+    
+    init(title: String) {
+        self.title = title
+    }
+    
+    func makeView() -> UIView {
+        let topStack = makeBasicStackView(axis: .vertical)
+        topStack.spacing = 12
+        topStack.layoutMargins = .init(top: 40, left: 40, bottom: 40, right: 40)
+        
+        let topLabel = UILabel()
+        topLabel.text = title
+        let textFieldTop = UITextField()
+        
+        let picker = UIPickerView()
+        
+        picker.delegate = self.fieldPickerDelegate
+        picker.dataSource = self.fieldPickerDelegate
+        
+        let toolBar = UIToolbar()
+        toolBar.barStyle = .default
+        toolBar.isTranslucent = true
+        toolBar.tintColor = .blue
+        toolBar.sizeToFit()
+        
+        let cancelButton = UIBarButtonItem(title: "Clear", style: .plain, target: nil, action: nil)
+        
+        let doneButton = UIBarButtonItem(title: "Done", style: .plain, target: nil, action: nil)
+        
+        cancelButton.rx.tap.subscribe(onNext: { _ in
+            textFieldTop.text = nil
+            textFieldTop.resignFirstResponder() }).disposed(by: bag)
+        
+        doneButton.rx.tap.subscribe(onNext: { _ in
+            textFieldTop.resignFirstResponder() }).disposed(by: bag)
+        
+        textFieldTop.inputAssistantItem.leadingBarButtonGroups.removeAll()
+        textFieldTop.inputAssistantItem.trailingBarButtonGroups.removeAll()
+    
+        toolBar.setItems([cancelButton, doneButton], animated: false)
+        toolBar.isUserInteractionEnabled = true
+        textFieldTop.inputAccessoryView = toolBar
+        
+        picker.rx.itemSelected.subscribe(onNext: { row, _ in
+            textFieldTop.text = String(row)
+        }).disposed(by: bag)
+        
+        textFieldTop.autocorrectionType = .no
+        textFieldTop.borderStyle = .roundedRect
+        textFieldTop.inputView = picker
+        textFieldTop.translatesAutoresizingMaskIntoConstraints = false
+        
+        topStack.addArrangedSubview(topLabel)
+        topStack.addArrangedSubview(textFieldTop)
+        topStack.alignment = .fill
+        
+        return topStack
+    }
+}
+
+
+public final class ZDaysFormViewController: UIViewController {
+    let field = Field(title: "Value")
+    
+    override public func viewDidLoad() {
+        super.viewDidLoad()
+        self.view.backgroundColor = .white
+        
+        let button = UIButton(type: .roundedRect)
+        button.setTitle("Submit", for: .normal)
+        button.setTitleColor(.red, for: .disabled)
+        button.setTitleColor(.black, for: .normal)
+        button.titleLabel?.font = .boldSystemFont(ofSize: 20.0)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.isEnabled = false
+        
+        let stack = makeBasicStackView(axis: .vertical)
+        stack.spacing = 12
+        
+        stack.addArrangedSubview(field.makeView())
+        stack.addArrangedSubview(button)
+        
+        stack.layoutMargins = .init(top: 40, left: 40, bottom: 40, right: 40)
+        
+        self.view.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: self.view.topAnchor)])
+    }
+}
+
+extension UIViewController {
+    public func display(using page: PlaygroundPage) {
+        let window = UIWindow(frame: CGRect(x: 0,
+                                            y: 0,
+                                            width: 768,
+                                            height: 1024))
+        window.rootViewController = self
+        window.makeKeyAndVisible()
+        
+        page.needsIndefiniteExecution = true
+        page.liveView = window
+    }
+}
+
+
+ZDaysFormViewController().display(using: PlaygroundPage.current)
