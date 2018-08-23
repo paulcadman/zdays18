@@ -10,16 +10,32 @@ protocol StateMachine {
     func update(from state: State, with event: Event) -> State
 }
 
+enum FormState {
+    case invalid
+    case valid(number: Int)
+    case submitted
+}
+
+enum FormEvent {
+    case clear
+    case select(number: Int)
+    case submit
+}
+
 struct FormStateMachine: StateMachine {
-    typealias State = FieldState<Int>
-    typealias Event = FieldEvent<Int>
+    typealias State = FormState
+    typealias Event = FormEvent
     
     func update(from state: State, with event: Event) -> State {
         switch (state, event) {
         case (_, .select(let item)):
-            return .set(item)
+            return .valid(number: item)
         case (_, .clear):
-            return .unset
+            return .invalid
+        case (.valid, .submit):
+            return .submitted
+        case (_, .submit):
+            return state
         }
     }
 }
@@ -38,20 +54,33 @@ final class RxStateMachine<S: StateMachine> {
 
 let viewController = ZDaysFormViewController()
 
-let selectEvents = viewController.selector.selected
+let selectEvents = viewController.selector.selected.map { event -> FormEvent in
+    switch event {
+    case .select(let number):
+        return .select(number: number)
+    case .clear:
+        return .clear
+    }
+}
+
+let tapEvents = viewController.button.tap.map { _ in FormEvent.submit }
+
+let allEvents = Observable.merge(tapEvents, selectEvents)
 
 let machine = RxStateMachine(wrapping: FormStateMachine(),
-                             initialState: FieldState<Int>.unset,
-                             events: selectEvents)
+                             initialState: FormState.invalid,
+                             events: allEvents)
 
 machine.run { state in
     switch state {
-    case .unset:
+    case .invalid:
         viewController.field.value.onNext(.unset)
         viewController.button.isEnabled.onNext(false)
-    case .set(let value):
-        viewController.field.value.onNext(.set(value))
+    case .valid(let number):
+        viewController.field.value.onNext(.set(number))
         viewController.button.isEnabled.onNext(true)
+    case .submitted:
+        viewController.button.isEnabled.onNext(false)
     }
 }
 

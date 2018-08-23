@@ -23,6 +23,7 @@ public struct Selector<Value> {
 
 public struct Button {
     public var isEnabled: AnyObserver<Bool>
+    public var tap: Observable<Void>
 }
 
 func makeBasicStackView(axis: NSLayoutConstraint.Axis) -> UIStackView {
@@ -94,8 +95,9 @@ final class NumberPickerField {
         let doneButton = UIBarButtonItem(title: "Done", style: .plain, target: nil, action: nil)
         
         cancelButton.rx.tap.subscribe(onNext: { _ in
-            textFieldTop.text = nil
-            textFieldTop.resignFirstResponder() }).disposed(by: bag)
+            self._selected.onNext(.clear)
+            textFieldTop.resignFirstResponder()
+        }).disposed(by: bag)
         
         doneButton.rx.tap.subscribe(onNext: { _ in
             textFieldTop.resignFirstResponder() }).disposed(by: bag)
@@ -137,12 +139,15 @@ final class NumberPickerField {
 
 final class SubmitButton {
     let isEnabled: AnyObserver<Bool>
+    let tap: Observable<Void>
     let bag = DisposeBag()
     
     private let _isEnabled = BehaviorSubject<Bool>(value: false)
+    private let _tap = PublishSubject<Void>()
     
     init() {
         isEnabled = _isEnabled.asObserver()
+        tap = _tap
     }
     
     func makeView() -> UIView {
@@ -153,6 +158,7 @@ final class SubmitButton {
         button.titleLabel?.font = .boldSystemFont(ofSize: 20.0)
         button.translatesAutoresizingMaskIntoConstraints = false
         _isEnabled.bind(to: button.rx.isEnabled).disposed(by: bag)
+        button.rx.tap.bind(to: _tap.asObserver()).disposed(by: bag)
         return button
     }
 }
@@ -168,7 +174,7 @@ public final class ZDaysFormViewController: UIViewController {
     public init() {
         field = Field(value: numberPicker.value)
         selector = Selector(selected: numberPicker.selected)
-        button = Button(isEnabled: _button.isEnabled)
+        button = Button(isEnabled: _button.isEnabled, tap: _button.tap)
         super.init(nibName: nil, bundle: nil)
     }
     
