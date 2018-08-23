@@ -16,8 +16,18 @@ public enum FieldEvent<Value> {
 public struct Field<Value> {
     var value: AnyObserver<FieldState<Value>>
     
+    var isEnabled: AnyObserver<Bool>
+    
     public func set(_ newValue: FieldState<Value>) {
         value.onNext(newValue)
+    }
+    
+    public func disable() {
+        isEnabled.onNext(false)
+    }
+    
+    public func enable() {
+        isEnabled.onNext(true)
     }
 }
 
@@ -65,9 +75,11 @@ class FieldPickerDelegate: NSObject, UIPickerViewDelegate, UIPickerViewDataSourc
 final class NumberPickerField {
     let value: AnyObserver<FieldState<Int>>
     let selected: Observable<FieldEvent<Int>>
+    let isEnabled: AnyObserver<Bool>
     
     private let _value = BehaviorSubject<FieldState<Int>>(value: .empty)
     private let _selected = PublishSubject<FieldEvent<Int>>()
+    private let _isEnabled = BehaviorSubject(value: true)
     
     private let title: String
     private let bag = DisposeBag()
@@ -77,6 +89,7 @@ final class NumberPickerField {
         self.title = title
         value = _value.asObserver()
         selected = _selected
+        isEnabled = _isEnabled.asObserver()
     }
     
     func makeView() -> UIView {
@@ -90,6 +103,8 @@ final class NumberPickerField {
         
         topLabel.text = title
         let textFieldTop = UITextField()
+        
+        _isEnabled.bind(to: textFieldTop.rx.isEnabled).disposed(by: bag)
         
         let picker = UIPickerView()
         
@@ -165,8 +180,8 @@ final class SubmitButton {
     func makeView() -> UIView {
         let button = UIButton(type: .roundedRect)
         button.setTitle("Submit", for: .normal)
-        button.setTitleColor(.red, for: .disabled)
-        button.setTitleColor(.black, for: .normal)
+        button.setTitleColor(.lightGray, for: .disabled)
+        button.setTitleColor(.red, for: .normal)
         button.titleLabel?.font = .boldSystemFont(ofSize: 20.0)
         button.translatesAutoresizingMaskIntoConstraints = false
         _isEnabled.bind(to: button.rx.isEnabled).disposed(by: bag)
@@ -184,7 +199,7 @@ public final class ZDaysFormViewController: UIViewController {
     public let button: Button
     
     public init() {
-        field = Field(value: numberPicker.value)
+        field = Field(value: numberPicker.value, isEnabled: numberPicker.isEnabled)
         selector = Selector(events: numberPicker.selected)
         button = Button(isEnabled: _button.isEnabled, tap: _button.tap)
         super.init(nibName: nil, bundle: nil)

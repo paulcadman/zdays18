@@ -3,16 +3,11 @@ import RxSwift
 import RxCocoa
 import PlaygroundSupport
 
-protocol StateMachine {
-    associatedtype State
-    associatedtype Event
-    
-    func update(from state: State, with event: Event) -> State
-}
 
 enum FormState {
     case invalid
     case valid(number: Int)
+    case submitting(number: Int)
     case submitted
 }
 
@@ -20,6 +15,7 @@ enum FormEvent {
     case clear
     case select(number: Int)
     case submit
+    case confirm
 }
 
 struct FormStateMachine: StateMachine {
@@ -28,14 +24,20 @@ struct FormStateMachine: StateMachine {
     
     func update(from state: State, with event: Event) -> State {
         switch (state, event) {
+        case (.submitting, .confirm):
+            return .submitted
+        case (.submitting, _):
+            return state
         case (_, .select(let item)):
             return .valid(number: item)
         case (_, .clear):
             return .invalid
-        case (.valid, .submit):
-            return .submitted
+        case (.valid(let number), .submit):
+            return .submitting(number: number)
         case (_, .submit):
             return state
+        case (_, .confirm):
+            return .invalid
         }
     }
 }
@@ -48,7 +50,9 @@ final class RxStateMachine<S: StateMachine> {
     }
     
     func run(with sideEffect: @escaping (S.State) -> Void) -> Disposable {
-        return self.state.do(onNext: sideEffect).subscribe()
+        return self.state
+            .subscribeOn(MainScheduler.instance)
+            .do(onNext: sideEffect).subscribe()
     }
 }
 
@@ -63,24 +67,38 @@ let selectEvents = viewController.selector.events.map { event -> FormEvent in
     }
 }
 
+let client = Client()
+
+let networkEvents = client.events.map { _ in FormEvent.confirm }
+
 let tapEvents = viewController.button.tap.map { _ in FormEvent.submit }
 
-let allEvents = Observable.merge(tapEvents, selectEvents)
+let allEvents = Observable.merge(tapEvents, selectEvents, networkEvents)
 
-let machine = RxStateMachine(wrapping: FormStateMachine(),
+let loggingMachine = LoggingStateMachine(wrapping: FormStateMachine())
+
+let machine = RxStateMachine(wrapping: loggingMachine,
                              initialState: FormState.invalid,
                              events: allEvents)
+
 
 machine.run { state in
     switch state {
     case .invalid:
+        viewController.field.enable()
         viewController.field.set(.empty)
         viewController.button.disable()
     case .valid(let number):
         viewController.field.set(.selected(number))
         viewController.button.enable()
+    case .submitting(let number):
+        viewController.button.disable()
+        viewController.field.disable()
+        client.submit(number)
     case .submitted:
         viewController.button.disable()
+        viewController.field.enable()
+        viewController.field.set(.empty)
     }
 }
 
