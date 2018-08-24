@@ -3,7 +3,6 @@ import RxSwift
 import RxCocoa
 import PlaygroundSupport
 
-
 enum FormState {
     case invalid
     case valid(number: Int)
@@ -28,8 +27,8 @@ struct FormStateMachine: StateMachine {
             return .submitted
         case (.submitting, _):
             return state
-        case (_, .select(let item)):
-            return .valid(number: item)
+        case (_, .select(let selected)):
+            return .valid(number: selected)
         case (_, .clear):
             return .invalid
         case (.valid(let number), .submit):
@@ -85,17 +84,17 @@ let field = viewController.field
 let button = viewController.button
 
 
-// State machine
+// State machine and processor
 
 let loggingMachine = LoggingStateMachine(wrapping: FormStateMachine())
 
-let machine = RxStateProcessor(wrapping: loggingMachine,
+let processor = RxStateProcessor(wrapping: loggingMachine,
                                initialState: FormState.invalid,
                                events: allEvents)
 
 // Execution
 
-machine.process { state in
+processor.process { state in
     switch state {
     case .invalid:
         field.enable()
