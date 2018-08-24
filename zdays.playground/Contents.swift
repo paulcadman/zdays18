@@ -42,19 +42,21 @@ struct FormStateMachine: StateMachine {
     }
 }
 
-final class RxStateMachine<S: StateMachine> {
+final class RxStateProcessor<S: StateMachine> {
     private let state: Observable<S.State>
     
     init(wrapping base: S, initialState: S.State, events: Observable<S.Event>) {
         state = events.scan(initialState, accumulator: base.update(from:with:))
     }
     
-    func run(with sideEffect: @escaping (S.State) -> Void) -> Disposable {
+    func process(with sideEffect: @escaping (S.State) -> Void) -> Disposable {
         return self.state
             .subscribeOn(MainScheduler.instance)
             .do(onNext: sideEffect).subscribe()
     }
 }
+
+// setup components
 
 let viewController = ZDaysFormViewController()
 let network = Network()
@@ -87,13 +89,13 @@ let button = viewController.button
 
 let loggingMachine = LoggingStateMachine(wrapping: FormStateMachine())
 
-let machine = RxStateMachine(wrapping: loggingMachine,
-                             initialState: FormState.invalid,
-                             events: allEvents)
+let machine = RxStateProcessor(wrapping: loggingMachine,
+                               initialState: FormState.invalid,
+                               events: allEvents)
 
 // Execution
 
-machine.run { state in
+machine.process { state in
     switch state {
     case .invalid:
         field.enable()
