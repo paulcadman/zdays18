@@ -57,6 +57,14 @@ final class RxStateMachine<S: StateMachine> {
 }
 
 let viewController = ZDaysFormViewController()
+let network = Network()
+
+
+// Events
+
+let networkEvents = network.events.map { _ in FormEvent.confirm }
+
+let tapEvents = viewController.button.tap.map { _ in FormEvent.submit }
 
 let selectEvents = viewController.selector.events.map { event -> FormEvent in
     switch event {
@@ -67,13 +75,15 @@ let selectEvents = viewController.selector.events.map { event -> FormEvent in
     }
 }
 
-let client = Client()
-
-let networkEvents = client.events.map { _ in FormEvent.confirm }
-
-let tapEvents = viewController.button.tap.map { _ in FormEvent.submit }
-
 let allEvents = Observable.merge(tapEvents, selectEvents, networkEvents)
+
+// Side effects
+
+let field = viewController.field
+let button = viewController.button
+
+
+// State machine
 
 let loggingMachine = LoggingStateMachine(wrapping: FormStateMachine())
 
@@ -81,24 +91,25 @@ let machine = RxStateMachine(wrapping: loggingMachine,
                              initialState: FormState.invalid,
                              events: allEvents)
 
+// Execution
 
 machine.run { state in
     switch state {
     case .invalid:
-        viewController.field.enable()
-        viewController.field.set(.empty)
-        viewController.button.disable()
+        field.enable()
+        field.set(.empty)
+        button.disable()
     case .valid(let number):
-        viewController.field.set(.selected(number))
-        viewController.button.enable()
+        field.set(.selected(number))
+        button.enable()
     case .submitting(let number):
-        viewController.button.disable()
-        viewController.field.disable()
-        client.submit(number)
+        button.disable()
+        field.disable()
+        network.submit(number)
     case .submitted:
-        viewController.button.disable()
-        viewController.field.enable()
-        viewController.field.set(.empty)
+        button.disable()
+        field.enable()
+        field.set(.empty)
     }
 }
 

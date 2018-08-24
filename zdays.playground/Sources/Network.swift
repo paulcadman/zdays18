@@ -1,7 +1,7 @@
 import RxSwift
 
 
-public class Client {
+public class Network {
     public var events: Observable<Void>
     
     var _events = PublishSubject<Void>()

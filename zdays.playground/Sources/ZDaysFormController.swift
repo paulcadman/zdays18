@@ -219,7 +219,7 @@ public final class ZDaysFormViewController: UIViewController {
         stack.addArrangedSubview(numberPicker.makeView())
         stack.addArrangedSubview(_button.makeView())
         
-        stack.layoutMargins = .init(top: 40, left: 40, bottom: 40, right: 40)
+        stack.layoutMargins = .init(top: 200, left: 40, bottom: 40, right: 40)
         
         self.view.addSubview(stack)
         
