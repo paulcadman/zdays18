@@ -7,6 +7,7 @@ A playground for my ZDays iOS StateMachines talk.
 * Clone this repo
 * `cd` into the repo directory
 * Run `git submodule init`
+* Run `git submodule update --recursive`
 * Open `zdaysform.workspace`
 * Build `cmd+B`
 * Open and run the playground.
