@@ -190,18 +190,42 @@ final class SubmitButton {
     }
 }
 
+final class DebugView {
+    let bag = DisposeBag()
+    
+    private let debugString: Observable<String>
+    
+    init(_ debugString: Observable<String>) {
+        self.debugString = debugString
+    }
+    
+    func makeView() -> UIView {
+        let textView = UILabel()
+        textView.numberOfLines = 0
+        textView.translatesAutoresizingMaskIntoConstraints = false
+        debugString.debug().bind(to: textView.rx.text).disposed(by: bag)
+        return textView
+    }
+}
+
 public final class ZDaysFormViewController: UIViewController {
     private let numberPicker = NumberPickerField(title: "Pick a number")
     private let _button = SubmitButton()
+    private let _debug = PublishSubject<String>()
+    private let debugView: DebugView
     
     public let field: Field<Int>
     public let selector: Selector<Int>
     public let button: Button
+    public let debug: AnyObserver<String>
     
     public init() {
         field = Field(value: numberPicker.value, isEnabled: numberPicker.isEnabled)
         selector = Selector(events: numberPicker.selected)
         button = Button(isEnabled: _button.isEnabled, tap: _button.tap)
+        
+        debug = _debug.asObserver()
+        debugView = DebugView(self._debug.asObservable())
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -218,6 +242,7 @@ public final class ZDaysFormViewController: UIViewController {
         
         stack.addArrangedSubview(numberPicker.makeView())
         stack.addArrangedSubview(_button.makeView())
+        stack.addArrangedSubview(debugView.makeView())
         
         stack.layoutMargins = .init(top: 200, left: 40, bottom: 40, right: 40)
         

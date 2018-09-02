@@ -55,11 +55,16 @@ final class RxStateProcessor<S: StateMachine> {
     }
 }
 
+// state machine
+
+let loggingMachine = DebugEventStateMachine(wrapping: FormStateMachine())
+
 // setup components
 
 let viewController = ZDaysFormViewController()
 let network = Network()
 
+ loggingMachine.debugString.bind(to: viewController.debug)
 
 // Events
 
@@ -84,9 +89,7 @@ let field = viewController.field
 let button = viewController.button
 
 
-// State machine and processor
-
-let loggingMachine = LoggingStateMachine(wrapping: FormStateMachine())
+//  processor
 
 let processor = RxStateProcessor(wrapping: loggingMachine,
                                initialState: FormState.invalid,
@@ -113,5 +116,7 @@ processor.process { state in
         field.set(.empty)
     }
 }
+
+
 
 viewController.display(using: PlaygroundPage.current)
